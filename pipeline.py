@@ -16,12 +16,13 @@ Required installs:
 
 Required input:
     -Reference genome assembly file
-    -Forward reads .fastq file
-    -Reverse reads .fastq file
-    -.bed file defining genes to call variants in
-    -text file for converting RefSeq chromosome notation to UCSC
+    (https://www.ncbi.nlm.nih.gov/assembly/GCF_000001405.25/)
+    -A forward reads .fastq file
+    -A reverse reads .fastq file
+    -.bed file defining genes to call variants in (example: lqts_genes.bed)
+    -convert_scaffolsds text file to convert RefSeq chromosome notation to UCSC
 
-Process (total files created ~20.7 GB, total time ~2h 15m):
+Process based on LQTS example: (creates files ~20.7GB, duration ~2h 15m)
     -Generate .fastq file quality metrics using FastQC          (1.1 MB, ~1m)
     -Generate reference genome index using BWA                  (5.7GB, ~1.2h)
     -BWA-MEM alignment of reads to reference genome             (3.7GB, ~30m)
@@ -150,6 +151,8 @@ def bwa_mem_paired(ref_genome, for_reads, rev_reads, output_file):
 
 def bowtie_index(ref_genome):
     """
+    THIS FUNCTION IS NOT CURRENTLY USED
+
     Use 'bowtie2 index' to construct index files for the supplied file
 
     Args:
@@ -188,6 +191,8 @@ def bowtie_index(ref_genome):
 
 def bowtie_alignment(ref_genome, for_reads, rev_reads, output_file):
     """
+    THIS FUNCTION IS NOT CURRENTLY USED
+
     Use BowTie2 to align reads to reference genome
 
     Args:
@@ -435,7 +440,7 @@ def call_variants(ref_genome, bam_file, output_file):
 
 def chromosome_notation(chr_file, file_to_change):
     """
-    Convert RefSeq contig notation into UCSC format
+    Convert RefSeq contig notation into UCSC format (needed for filtering)
 
     Args:
         chr_file [string]: contains chromosome notation info
@@ -749,8 +754,8 @@ def compare_vcfs(vcf_1, vcf_2, output_prefix):
 
 def main():
 
-    # print('PIPELINE STARTED: {}'.format(dt.now().strftime('%H:%M:%S')))
-    # pipeline_start = dt.now()
+    print('PIPELINE STARTED: {}'.format(dt.now().strftime('%H:%M:%S')))
+    pipeline_start = dt.now()
 
 
     """ Define inputs as strings of paths to input files """
@@ -772,70 +777,62 @@ def main():
 
     """ Get quality metrics for forward and reverse reads files """
 
-    # for reads in [for_reads, rev_reads]:
-    #     run_fastqc(reads)
+    for reads in [for_reads, rev_reads]:
+        run_fastqc(reads)
 
 
     """ Create genome assembly index and perform alignment """
 
-    # bwa_index(ref_genome)
+    bwa_index(ref_genome)
 
-    # sam_file = bwa_mem_paired(
-    #     ref_genome,
-    #     for_reads,
-    #     rev_reads,
-    #     'bam_files/aln.sam')
-
-    # # bowtie_index(ref_genome)
-
-    # # bowtie_alignment(
-    # #     ref_genome,
-    # #     for_reads,
-    # #     rev_reads,
-    # #     'bam_files/aln.sam')
+    sam_file = bwa_mem_paired(
+        ref_genome,
+        for_reads,
+        rev_reads,
+        'bam_files/aln.sam')
 
 
     """ Convert to .bam format and clean files """
 
-    # bam_file = sam_to_bam(sam_file, 'bam_files/1_aln.bam')
-    # collated_bam = collate_reads(bam_file, 'bam_files/2_collated.bam')
-    # fixedmates_bam = fixmates(collated_bam, 'bam_files/3_fixmate.bam')
-    # sorted_bam = sort_bam(fixedmates_bam, 'bam_files/4_sorted.bam')
-    # markdup_bam = mark_duplicates(sorted_bam, 'bam_files/5_markdup.bam')
+    bam_file = sam_to_bam(sam_file, 'bam_files/1_aln.bam')
+    collated_bam = collate_reads(bam_file, 'bam_files/2_collated.bam')
+    fixedmates_bam = fixmates(collated_bam, 'bam_files/3_fixmate.bam')
+    sorted_bam = sort_bam(fixedmates_bam, 'bam_files/4_sorted.bam')
+    markdup_bam = mark_duplicates(sorted_bam, 'bam_files/5_markdup.bam')
 
 
     """ Call variants using FreeBayes, filter using VCFTools """
 
-    # vcf_file = call_variants(
-    #     ref_genome,
-    #     markdup_bam,
-    #     'vcf_files/1_variants.vcf')
+    vcf_file = call_variants(
+        ref_genome,
+        markdup_bam,
+        'vcf_files/1_variants.vcf')
 
-    # fixed_chrs = chromosome_notation(chr_file, vcf_file)
+    fixed_chrs = chromosome_notation(chr_file, vcf_file)
 
-    # filtered_vcf = filter_vcf(
-    #     fixed_chrs,
-    #     bed_file,
-    #     minQ,
-    #     'vcf_files/2_filtered')
+    filtered_vcf = filter_vcf(
+        fixed_chrs,
+        bed_file,
+        minQ,
+        'vcf_files/2_filtered')
 
-    # sorted_vcf = sort_variants(filtered_vcf, 'vcf_files/3_sorted.vcf')
+    sorted_vcf = sort_variants(filtered_vcf, 'vcf_files/3_sorted.vcf')
 
 
     """ Download annotation databases and annotate variants """
 
-    # annovar_downloads()
+    annovar_downloads()
 
-    # pre_annotation_vcf = annovar_format(
-    #     sorted_vcf,
-    #     'vcf_files/4_pre_annotation.vcf')
+    pre_annotation_vcf = annovar_format(
+        sorted_vcf,
+        'vcf_files/4_pre_annotation.vcf')
 
-    # annotate_variants(pre_annotation_vcf, 'vcf_files/post_annotation')
+    annotate_variants(pre_annotation_vcf, 'vcf_files/post_annotation')
 
 
-    # pipeline_end = dt.now()
-    # pipeline_duration = pipeline_end - pipeline_start
-    # print('PIPELINE TOOK {}'.format(str(pipeline_duration)))
+    pipeline_end = dt.now()
+    pipeline_duration = pipeline_end - pipeline_start
+    print('PIPELINE TOOK {}'.format(str(pipeline_duration)))
 
 
 if __name__ == '__main__':
